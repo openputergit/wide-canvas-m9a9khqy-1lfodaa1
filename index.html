@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Navigation Assistant for Visually Impaired</title>
+    <script src="https://unpkg.com/@tensorflow-models/speech-commands"></script>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        @media (max-width: 640px) {
+            .button-container {
+                flex-direction: column;
+            }
+            .button {
+                width: 100%;
+                margin: 5px 0;
+            }
+        }
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto px-4 py-8">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-blue-600 mb-4">Navigation Assistant</h1>
+            <p class="text-gray-600">Voice-guided navigation for the visually impaired</p>
+        </header>
+
+        <div class="max-w-md mx-auto bg-white rounded-lg shadow-lg p-6 mb-8">
+            <div id="status" class="text-center mb-6">
+                <div id="statusIndicator" class="w-24 h-24 mx-auto rounded-full bg-gray-200 pulse"></div>
+                <p id="statusText" class="mt-4 text-lg font-semibold">Tap to Start Listening</p>
+            </div>
+
+            <div class="space-y-4">
+                <button id="startBtn" class="w-full py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition duration-300">
+                    Start Navigation
+                </button>
+                <button id="stopBtn" class="w-full py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 transition duration-300" style="display: none;">
+                    Stop Navigation
+                </button>
+                <div id="output" class="mt-4 p-4 bg-gray-100 rounded-lg min-h-[100px]"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const output = document.getElementById('output');
+        const statusIndicator = document.getElementById('statusIndicator');
+        const statusText = document.getElementById('statusText');
+        let recognition = null;
+
+        if ('webkitSpeechRecognition' in window) {
+            recognition = new webkitSpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = true;
+
+            recognition.onstart = () => {
+                statusIndicator.classList.add('bg-green-500');
+                statusText.textContent = 'Listening...';
+                startBtn.style.display = 'none';
+                stopBtn.style.display = 'block';
+            };
+
+            recognition.onend = () => {
+                statusIndicator.classList.remove('bg-green-500');
+                statusIndicator.classList.add('bg-gray-200');
+                statusText.textContent = 'Tap to Start Listening';
+                startBtn.style.display = 'block';
+                stopBtn.style.display = 'none';
+            };
+
+            recognition.onresult = (event) => {
+                let finalTranscript = '';
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    if (event.results[i].isFinal) {
+                        finalTranscript += event.results[i][0].transcript;
+                    }
+                }
+                
+                if (finalTranscript) {
+                    output.innerHTML += `<p class="mb-2">${finalTranscript}</p>`;
+                    speakResponse(finalTranscript);
+                }
+            };
+
+            recognition.onerror = (event) => {
+                console.error('Speech recognition error:', event.error);
+                statusIndicator.classList.add('bg-red-500');
+                statusText.textContent = 'Error occurred. Please try again.';
+            };
+        }
+
+        function speakResponse(text) {
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.rate = 1;
+            utterance.pitch = 1;
+            window.speechSynthesis.speak(utterance);
+        }
+
+        startBtn.addEventListener('click', () => {
+            if (recognition) {
+                recognition.start();
+                navigator.geolocation.watchPosition(
+                    (position) => {
+                        // Handle location updates
+                        console.log(position.coords.latitude, position.coords.longitude);
+                    },
+                    (error) => {
+                        console.error('Geolocation error:', error);
+                        speakResponse('Unable to access location. Please check your location settings.');
+                    }
+                );
+            }
+        });
+
+        stopBtn.addEventListener('click', () => {
+            if (recognition) {
+                recognition.stop();
+            }
+        });
+
+        // Handle orientation for direction guidance
+        window.addEventListener('deviceorientation', (event) => {
+            const heading = event.alpha; // Device orientation in degrees
+            // Use heading to provide directional guidance
+            // For example: "Turn slightly left" or "Continue straight ahead"
+        });
+    </script>
+<script>document.body.addEventListener('wheel', e => { if (!e.ctrlKey) return; e.preventDefault(); return }, { passive: false })</script>
+	</body>
+</html>
